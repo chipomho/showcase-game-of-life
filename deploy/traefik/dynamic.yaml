@@ -1,0 +1,25 @@
+http:
+  routers:
+    game-of-life:
+      rule: Host(`game-of-life.showcases.chipomho.local`)
+      entryPoints: [websecure]
+      service: game-of-life
+      tls: {}
+    game-of-life-api:
+      rule: Host(`game-of-life-api.showcases.chipomho.local`)
+      entryPoints: [websecure]
+      service: game-of-life
+      tls: {}
+
+  services:
+    game-of-life:
+      loadBalancer:
+        servers:
+          - url: http://app:8080
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/showcases.crt
+        keyFile: /certs/showcases.key

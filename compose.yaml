@@ -1,0 +1,40 @@
+name: game-of-life
+
+services:
+  certificates:
+    image: docker.io/library/alpine:3.24
+    command: ["/bin/sh", "/scripts/generate.sh"]
+    volumes:
+      - ./deploy/certs:/scripts:ro
+      - ${SHOWCASES_CA_DIR:-./.certs}:/certs
+
+  traefik:
+    image: docker.io/library/traefik:v3.7
+    command: ["--configFile=/etc/traefik/traefik.yaml"]
+    ports:
+      - "${SHOWCASES_HTTP_PORT:-80}:80"
+      - "${SHOWCASES_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/traefik:/etc/traefik:ro
+      - ${SHOWCASES_CA_DIR:-./.certs}:/certs:ro
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+      app:
+        condition: service_healthy
+
+  # Serves the page on one hostname and the API on another, so the page's calls are cross-origin
+  # the way they would be with the two deployed apart.
+  app:
+    build: .
+    image: game-of-life:local
+    environment:
+      API_BASE_URL: https://game-of-life-api.showcases.chipomho.local
+      ALLOWED_ORIGINS: https://game-of-life.showcases.chipomho.local
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      # Long enough for a cold start on a busy machine; the first passing check ends it early.
+      start_period: 300s
+      retries: 3
